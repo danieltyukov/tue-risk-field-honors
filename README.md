@@ -1,90 +1,63 @@
 # Risk Field Simulation
 
-This repository contains the code for generating the risk field based on input from the lidar sensor from the F1tenth car and simulating a scalar risk field and displaying the results using both Pygame or Matplotlib.
+Real-time generation of a scalar risk field around a vehicle, built from live LIDAR data on an F1tenth car and visualized with Pygame and Matplotlib. This was a Year 1 project for the TU/e Honors Academy. The idea comes from the shared risk field concept in autonomous driving research: instead of tracking individual obstacles, the vehicle builds a continuous 2D field where higher values mark regions that are more dangerous to enter.
 
-## Table of Contents
+The car carries a Hokuyo UST-10LX LIDAR with a 270 degree field of view and around 10 meter range. Each scan is converted from polar to Cartesian coordinates, filtered, and reduced to the nearest obstacles. From those obstacles the code computes a scalar risk field over a grid, where the risk of each cell is the summation of collision threat contributions from the detected objects. The heavy grid math is compiled with Numba so the field can be recomputed and redrawn fast enough to track the environment in real time.
 
-- [Risk Field Simulation](#risk-field-simulation)
-  - [Table of Contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [Files](#files)
-  - [Requirements](#requirements)
-  - [Installation](#installation)
-  - [Usage](#usage)
-    - [Running the Project](#running-the-project)
-    - [Alternative - Running the Simulation](#alternative---running-the-simulation)
-  - [License](#license)
+## Results
 
+The system runs against the physical F1tenth car and renders the risk field live as the car moves and obstacles appear in front of it. Below, an obstacle in the LIDAR's view shows up as a hot spot on the scalar risk field map.
 
+<p align="center">
+  <img width="620" src="docs/readme/risk_field_live.png">
+</p>
 
-## Introduction
+<p align="center">
+  <img width="460" src="docs/readme/lidar_setup.png">
+  <br>
+  <em>F1tenth car with the Hokuyo UST-10LX LIDAR and onboard compute.</em>
+</p>
 
-The Risk Field Simulation project is designed to calculate and visualize risk fields for a moving vehicle. It uses various mathematical models and visualizes the results using Pygame and Matplotlib.
-
-
+Getting reliable output took real tuning. The raw LIDAR data was noisy, so a median filter was added to smooth the ranges before object detection. Shiny surfaces produced spurious distance readings, which was handled by calibrating the sensor's intensity threshold to drop unreliable returns.
 
 ## Files
 
-- **vector.py**: Defines a `Vector` class for handling 2D vector operations.
-- **gui.py**: Handles the graphical user interface using Matplotlib for visualizing data.
-- **gui2.py**: Faster alternative for gui.py that implements a graphical user interface using Pygame for displaying the scalar risk field map.
-- **network.py**: Manages network configurations and socket connections for connecting with the car.
-- **obs_finder.py**: Contains functions for finding obstacles from lidar sensor data.
-- **risk_field.py**: Defines the risk field and related operations, utilizing Numba for performance optimization.
-- **server.py**: Main script for connecting with the car and handling incoming data and integrating network and risk field functionalities.
-- **simulation.py**: A simulation that can be used without the car for testing the risk field vector calculations, GUI display, and profiling.
-- **simulation2_numba.py**: An optimized version of the simulation using Numba for improved performance and faster calculations.
-
+- `vector.py`: a `Vector` class for 2D vector operations.
+- `obs_finder.py`: parses a LIDAR scan, converts it to Cartesian coordinates, and extracts the nearest obstacles.
+- `risk_field.py`: the risk field math (safe distance, alpha/beta/delta terms, per-cell risk), with the grid calculation compiled by Numba.
+- `gui.py`: Matplotlib visualization of the risk field.
+- `gui2.py`: faster Pygame visualization of the scalar risk field map.
+- `network.py`: socket configuration and connection handling for talking to the car.
+- `server.py`: main entry point for the live setup; receives data from the car and runs the detection and risk field pipeline.
+- `simulation.py`: standalone simulation for testing the risk field calculation and display without the car, with cProfile timing.
+- `simulation2_numba.py`: Numba-optimized version of the simulation for faster calculation.
 
 ## Requirements
 
 - Python 3.x
-- NumPy
-- Matplotlib
-- Pygame
-- Numba
+- NumPy, Matplotlib, Pygame, Numba
 
 ## Installation
 
-1. **Clone the repository:**
-    ```sh
-    git clone https://github.com/your-username/risk-field.git
-    cd risk-field
-    ```
-
-2. **Install the required Python packages:**
-    ```sh
-    pip install numpy matplotlib pygame numba
-    ```
+```sh
+git clone https://github.com/danieltyukov/tue-risk-field-honors.git
+cd tue-risk-field-honors
+pip install numpy matplotlib pygame numba
+```
 
 ## Usage
 
-### Running the Project
+Live, with the car in the lab: set the network IP address in `server.py` and on the car, then run the server.
 
-To run the Project in the lab with the car and visualize the risk field:
-1. **For using the car, set the network ip address in the server file and on the car**
-   
-2. **Run the server and main script:**
-    ```sh
-    python server.py
-    ```
+```sh
+python server.py
+```
 
-### Alternative - Running the Simulation
-1. **Run the simulation:**
-    ```sh
-    python simulation.py
-    ```
-   
-2. **Run the optimized simulation using Numba:**
-    ```sh
-    python simulation2_numba.py
-    ```
+Standalone, without the car, to test and profile the risk field calculation:
 
+```sh
+python simulation.py           # baseline
+python simulation2_numba.py    # Numba-optimized
+```
 
-
-
-
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Both simulation scripts write cProfile output to `profiling_results`, which is how the performance work was measured.
